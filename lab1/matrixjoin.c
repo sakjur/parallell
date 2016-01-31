@@ -89,6 +89,7 @@ int main(int argc, char *argv[]) {
         matrixcpy(&values->max, &max);
       }
     }
+    free(values);
   }
   end_time = read_timer();
   printf("The total is %ld\n", total);

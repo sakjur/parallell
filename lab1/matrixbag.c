@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
   for (l = 0; l < numWorkers; l++) {
     pthread_join(workerid[l], (void**) &values);
     if (!(values->useful)) {
+      free(values);
       continue;
     }
     total += values->sum;
@@ -96,6 +97,7 @@ int main(int argc, char *argv[]) {
         matrixcpy(&values->max, &max);
       }
     }
+    free(values);
   }
   end_time = read_timer();
   printf("The total is %ld\n", total);
