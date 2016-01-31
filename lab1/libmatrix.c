@@ -6,16 +6,26 @@
 #include "libmatrix.h"
 
 void properties_print(properties p) {
-  printf("Min: %ld (%ld, %ld); Max: %ld (%ld, %ld)\n",
-         p.min.val, p.min.x, p.min.y, p.max.val, p.max.x, p.max.y);
+  printf("Min: %ld [%ld, %ld]; Max: %ld [%ld, %ld]\n",
+         p.min.val, p.min.row, p.min.column,
+         p.max.val, p.max.row, p.max.column);
   printf("Sum: %ld\n", p.sum);
 }
 
 void matrixcpy(matrix_element* from, matrix_element* to) {
-  to->x = from->x;
-  to->y = from->y;
+  to->row = from->row;
+  to->column = from->column;
   to->val = from->val;
 }
+
+void update_matrix_element(matrix_element* dest,
+    int64_t val,
+    int64_t row,
+    int64_t column) {
+  dest->val    = val;
+  dest->row    = row;
+  dest->column = column;
+};
 
 /* timer */
 double read_timer() {

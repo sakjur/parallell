@@ -25,10 +25,15 @@
 #define MAXWORKERS 10   /* maximum number of workers */
 
 int numWorkers;           /* number of workers */
-int size, stripSize;  /* assume size is multiple of numWorkers */
+int size;  /* assume size is multiple of numWorkers */
 int matrix[MAXSIZE][MAXSIZE]; /* matrix */
+int current_row = 0;
 
 void *Worker(void *);
+
+int next_row() {
+  return current_row++;
+}
 
 /* read command line, initialize, and create threads */
 int main(int argc, char *argv[]) {
@@ -46,7 +51,6 @@ int main(int argc, char *argv[]) {
   numWorkers = (argc > 2)? atoi(argv[2]) : MAXWORKERS;
   if (size > MAXSIZE) size = MAXSIZE;
   if (numWorkers > MAXWORKERS) numWorkers = MAXWORKERS;
-  stripSize = size/numWorkers;
 
   srandom((int)time(NULL));
   /* initialize the matrix */
@@ -77,6 +81,9 @@ int main(int argc, char *argv[]) {
   properties* values;
   for (l = 0; l < numWorkers; l++) {
     pthread_join(workerid[l], (void**) &values);
+    if (!(values->useful)) {
+      continue;
+    }
     total += values->sum;
     if (l == 0) {
       matrixcpy(&values->min, &min);
@@ -100,28 +107,28 @@ int main(int argc, char *argv[]) {
 
 /* Each worker sums the values in one strip of the matrix. */
 void *Worker(void *arg) {
-  int64_t myid = (int64_t) arg;
   properties* value = malloc(sizeof(properties));
-  int total, i, j, first, last;
+  int total, i, j, first;
   matrix_element min, max = {0};
 
 #ifdef DEBUG
+  pthread_t myid = (int) arg;
   printf("worker %ld (pthread id %lu) has started\n", myid, pthread_self());
 #endif
-
-  /* determine first and last rows of my strip */
-  first = myid*stripSize;
-  last = (myid == numWorkers - 1) ? (size - 1) : (first + stripSize - 1);
-
   /* initialize both max and min to first element */
-  max.row   = first;
-  min.row   = first;
+  first   = next_row();
+  if (first > size) {
+    value->useful = false;
+    return value;
+  }
+  max.row = first;
+  min.row = first;
   max.val = matrix[first][0];
   min.val = matrix[first][0];
 
   /* sum values in my strip */
   total = 0;
-  for (i = first; i <= last; i++)
+  for (i = first; i < size; i = next_row())
     for (j = 0; j < size; j++) {
       total += matrix[i][j];
       if (matrix[i][j] < min.val) {
@@ -137,5 +144,6 @@ void *Worker(void *arg) {
 #ifdef DEBUG
   properties_print(*value);
 #endif
+  value->useful = true;
   return value;
 }
