@@ -19,14 +19,12 @@ typedef struct task {
   arraylist* list;
   bool sorted;
   bool partitioned;
-  bool gc;
   struct task* left;
   struct task* right;
 } task;
 
 double read_timer();
 task* start_task(arraylist* data);
-void free_task(task*);
 void* worker(void*);
 void sort (task*, size_t);
 void partition (task*);
@@ -128,14 +126,6 @@ void sort (task* base, size_t id) {
     if (!base->sorted) {
       if (base->left->sorted && base->right->sorted) {
         base->sorted = true;
-        if (pthread_mutex_lock(&base->left->lock) == 0) {
-          free_task(base->left);
-          base->left = NULL;
-        }
-        if (pthread_mutex_lock(&base->right->lock) == 0) {
-          free_task(base->right);
-          base->right = NULL;
-        }
       }
     }
     pthread_mutex_unlock(&base->lock);
@@ -210,11 +200,4 @@ void partition (task* base) {
   base->left = left;
   base->right = right;
 };
-
-void free_task (task* base) {
-  if (base) {
-    free(base->list);
-    free(base);
-  }
-}
 
