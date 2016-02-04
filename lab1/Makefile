@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-std=c11 -g -Wall -D_XOPEN_SOURCE=600 -O3
+CFLAGS=-std=c99 -g -Wall -D_XOPEN_SOURCE=600 -O3
 
 all: qsort.out matrix
 
