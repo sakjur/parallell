@@ -109,7 +109,6 @@ task* start_task(arraylist* data) {
 
 void* worker (void* arg) {
   size_t id = (size_t) arg;
-  srand(id);
   while(!root->sorted) {
     sort(root, id);
   }
@@ -131,7 +130,7 @@ void sort (task* base, size_t id) {
     pthread_mutex_unlock(&base->lock);
   }
 
-  if (rand() % 2 == 0) {
+  if (id % 2 == 0) {
     fst = base->left;
     snd = base->right;
   } else {
