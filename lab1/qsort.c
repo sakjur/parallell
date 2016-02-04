@@ -101,7 +101,6 @@ task* start_task(arraylist* data) {
   pthread_mutex_init(&rv->lock, NULL);
   rv->sorted = false;
   rv->partitioned = false;
-  rv->gc = false;
   rv->left = NULL;
   rv->right = NULL;
   rv->list = data;
