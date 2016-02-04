@@ -5,6 +5,9 @@
 #include <time.h>
 #include "libmatrix.h"
 
+/*
+ * Print the information in a thread's property field
+ */
 void properties_print(properties p) {
   printf("Min: %ld [%ld, %ld]; Max: %ld [%ld, %ld]\n",
          p.min.val, p.min.row, p.min.column,
@@ -12,12 +15,19 @@ void properties_print(properties p) {
   printf("Sum: %ld\n", p.sum);
 }
 
+/*
+ * Copy the position and value of a matrix element pointer to another
+ */
 void matrixcpy(matrix_element* from, matrix_element* to) {
   to->row = from->row;
   to->column = from->column;
   to->val = from->val;
 }
 
+/*
+ * Update the values of a matrix element pointer with the values in the
+ * arguments
+ */
 void update_matrix_element(matrix_element* dest,
     int64_t val,
     int64_t row,

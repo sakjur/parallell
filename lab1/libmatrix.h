@@ -1,12 +1,18 @@
 #pragma once
 #include <stdint.h>
 
+/*
+ * Values and position of a single element within a matrix
+ */
 typedef struct {
   int64_t column;
   int64_t row;
   int64_t val;
 } matrix_element;
 
+/*
+ * Contains the information returned by a thread
+ */
 typedef struct {
   matrix_element min;
   matrix_element max;
