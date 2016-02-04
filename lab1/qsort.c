@@ -6,7 +6,8 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include <time.h>
-#define MAXELEMS (20*1024*1024)
+#define DEFAULT_ELEMS (20*1024*1024)
+#define MAXELEMS (100*1024*1024)
 #define MAXWORKERS 30
 
 // An arraylist is an array which also stores it's length
@@ -37,7 +38,7 @@ task* root = NULL;
 
 int main(int argc, char *argv[]) {
   int num_workers = 4;
-  int elems = MAXELEMS;
+  int elems = DEFAULT_ELEMS;
 
   // If the application is launched with arguments, read these and use the
   // first as the number of workers to use (0 < n <= MAXWORKERS) and the
