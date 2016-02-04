@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -5,8 +6,8 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include <time.h>
-#define MAXELEMS 1000000
-#define MAXWORKERS 2
+#define MAXELEMS (20*1024*1024)
+#define MAXWORKERS 30
 
 typedef struct {
   int length;
@@ -18,8 +19,7 @@ typedef struct task {
   arraylist* list;
   bool sorted;
   bool partitioned;
-  int pivot;
-  int pequal; // Number equal to the pivot
+  bool gc;
   struct task* left;
   struct task* right;
 } task;
@@ -30,16 +30,34 @@ void free_task(task*);
 void* worker(void*);
 void sort (task*, size_t);
 void partition (task*);
-void merge (task*);
 
 pthread_attr_t attr;
 task* root = NULL;
 
 int main(int argc, char *argv[]) {
-  int n = MAXWORKERS;
+  int num_workers = 4;
   int elems = MAXELEMS;
+
+  if (argc > 1) {
+    num_workers = atoi(argv[1]);
+  }
+  if (argc > 2) {
+    elems = atoi(argv[2]);
+  }
+
+  if (elems == 0 || elems > MAXELEMS) {
+    printf("The number of elements must be an integer between 0 and %i\n",
+        MAXELEMS);
+    return -1;
+  }
+  if (num_workers == 0 || num_workers > MAXWORKERS) {
+    printf("The number of workers must be an integer between 0 and %i\n",
+        MAXWORKERS);
+    return -1;
+  }
+
   // pthread variables
-  pthread_t workers[n];
+  pthread_t workers[num_workers];
 
   // initialize global pthread attributes
   pthread_attr_init(&attr);
@@ -54,15 +72,15 @@ int main(int argc, char *argv[]) {
   root = start_task(data);
 
   double start_time = read_timer();
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < num_workers; i++) {
     pthread_create(&workers[i], &attr, worker, (void *) i);
   }
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < num_workers; i++) {
     pthread_join(workers[i], NULL);
   }
   double end_time = read_timer();
 
-  printf("Sorted %i elements using %i worker(s)\n", elems, n);
+  printf("Sorted %i elements using %i worker(s)\n", elems, num_workers);
   printf("The execution time is %g sec\n", end_time - start_time);
   return 0;
 }
@@ -85,8 +103,7 @@ task* start_task(arraylist* data) {
   pthread_mutex_init(&rv->lock, NULL);
   rv->sorted = false;
   rv->partitioned = false;
-  rv->pivot = 0;
-  rv->pequal = 0;
+  rv->gc = false;
   rv->left = NULL;
   rv->right = NULL;
   rv->list = data;
@@ -110,11 +127,20 @@ void sort (task* base, size_t id) {
 
     if (!base->sorted) {
       if (base->left->sorted && base->right->sorted) {
-        merge(base);
+        base->sorted = true;
+        if (pthread_mutex_lock(&base->left->lock) == 0) {
+          free_task(base->left);
+          base->left = NULL;
+        }
+        if (pthread_mutex_lock(&base->right->lock) == 0) {
+          free_task(base->right);
+          base->right = NULL;
+        }
       }
     }
     pthread_mutex_unlock(&base->lock);
   }
+
   if (id % 2 == 0) {
     fst = base->left;
     snd = base->right;
@@ -140,63 +166,53 @@ void partition (task* base) {
 
   arraylist* lesser = malloc(sizeof(arraylist));
   arraylist* greater = malloc(sizeof(arraylist));
-  lesser->array = malloc(sizeof(int)*list->length);
-  greater->array = malloc(sizeof(int)*list->length);
+  lesser->length = 0;
+  greater->length = 0;
+  int* tmplist = malloc(sizeof(int)*list->length);
 
   for (int i = 0; i < list->length; i++) {
     int curr = list->array[i];
     if (curr < pivot) {
-      lesser->array[lesser->length] = curr;
+      tmplist[lesser->length] = curr;
       lesser->length++;
     } else if (curr > pivot) {
-      greater->array[greater->length] = curr;
+      tmplist[list->length-(greater->length+1)] = curr;
       greater->length++;
     } else if (curr == pivot) {
       equal++;
     }
   }
 
-  base->pivot = pivot;
-  base->pequal = equal;
-  base->left = start_task(lesser);
-  base->right = start_task(greater);
-
-  if (lesser->length < 2) {
-    base->left->sorted = true;
-    base->left->partitioned = true;
-  }
-  if (greater->length < 2) {
-    base->right->sorted = true;
-    base->right->partitioned = true;
-  }
-
-  base->partitioned = true;
-};
-
-void merge (task* base) {
-  task* left = base->left;
-  task* right = base->right;
-  arraylist* list = base->list;
-  int equal = base->pequal;
-
-  if (!left->sorted && !right->sorted)
-    return;
-
-  int* right_pos = list->array + left->list->length + equal;
-  memcpy(list->array, left->list->array, left->list->length*sizeof(int));
-  memcpy(right_pos, right->list->array, right->list->length*sizeof(int));
-
   while (equal > 0) {
-    list->array[left->list->length+equal-1] = base->pivot;
+    tmplist[lesser->length+equal-1] = pivot;
     equal--;
   }
 
-  base->sorted = true;
-}
+  memcpy(list->array, tmplist, list->length*sizeof(int));
+  free(tmplist);
+
+  int* right_pos = list->array + lesser->length + equal;
+  lesser->array = list->array;
+  greater->array = right_pos;
+  task* left = start_task(lesser);
+  task* right = start_task(greater);
+
+  if (lesser->length < 2) {
+    left->sorted = true;
+    left->partitioned = true;
+  }
+  if (greater->length < 2) {
+    right->sorted = true;
+    right->partitioned = true;
+  }
+
+  base->partitioned = true;
+  base->left = left;
+  base->right = right;
+};
 
 void free_task (task* base) {
   if (base) {
-    free(base->list->array);
     free(base->list);
     free(base);
   }
