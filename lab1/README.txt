@@ -13,8 +13,38 @@ Compilation
 `make all` compiles all the code, leaving a bunch of binaries with the file-
 ending .out
 
+
 Matrix Operations
 =================
+
+Compilation
+-----------
+See general. To compile only the Matrix-binaries, run `make matrix`
+
+Variants
+--------
+<minmax>
+matrixminmax extends the original matrix.c-application to also find the minimum
+and maximum values in the matrix
+
+<join>
+matrixjoin uses pthread_join to gather the result of the matrix sub-calculations
+
+<bag>
+matrixbag uses a "bag of tasks" that encourages threads to do as much as they
+possibly can rather than pre-allocating a specific number of elements every
+thread handles
+
+Usage
+-----
+for each of matrixminmax.out, matrixjoin.out and matrixbag.out run
+`<application> <matrix_size> <workers>`
+
+matrix_size = the number of elements in every row and column of the matrix;
+default & max 10000
+
+workers = the number of threads that divides the problem; default & max 10
+
 
 QuickSort
 =========
