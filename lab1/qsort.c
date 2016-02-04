@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include <time.h>
-#define MAXELEMS 100000
-#define MAXWORKERS 5
+#define MAXELEMS 1000000
+#define MAXWORKERS 2
 
 typedef struct {
   int length;
@@ -28,7 +28,7 @@ double read_timer();
 task* start_task(arraylist* data);
 void free_task(task*);
 void* worker(void*);
-void sort (task*);
+void sort (task*, size_t);
 void partition (task*);
 void merge (task*);
 
@@ -54,10 +54,10 @@ int main(int argc, char *argv[]) {
   root = start_task(data);
 
   double start_time = read_timer();
-  for (int i = 0; i < n; i++) {
-    pthread_create(&workers[i], &attr, worker, (void *) NULL);
+  for (size_t i = 0; i < n; i++) {
+    pthread_create(&workers[i], &attr, worker, (void *) i);
   }
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     pthread_join(workers[i], NULL);
   }
   double end_time = read_timer();
@@ -94,12 +94,15 @@ task* start_task(arraylist* data) {
 }
 
 void* worker (void* arg) {
-  while(!root->sorted)
-    sort(root);
+  size_t id = (size_t) arg;
+  while(!root->sorted) {
+    sort(root, id);
+  }
   return NULL;
 }
 
-void sort (task* base) {
+void sort (task* base, size_t id) {
+  task *fst, *snd;
   if (pthread_mutex_trylock(&base->lock) == 0) {
     if (!base->partitioned) {
       partition(base);
@@ -108,19 +111,25 @@ void sort (task* base) {
     if (!base->sorted) {
       if (base->left->sorted && base->right->sorted) {
         merge(base);
-      } else {
-        if (!base->left->sorted) {
-          pthread_mutex_unlock(&base->lock);
-          sort(base->left);
-        }
-        if (!base->right->sorted) {
-          pthread_mutex_unlock(&base->lock);
-          sort(base->right);
-        }
       }
     }
+    pthread_mutex_unlock(&base->lock);
   }
-  pthread_mutex_unlock(&base->lock);
+  if (id % 2 == 0) {
+    fst = base->left;
+    snd = base->right;
+  } else {
+    fst = base->right;
+    snd = base->left;
+  }
+  if (fst)
+    if (!fst->sorted) {
+      sort(fst, id);
+    }
+  if (snd)
+    if (!snd->sorted) {
+      sort(snd, id);
+    }
 }
 
 void partition (task* base) {
