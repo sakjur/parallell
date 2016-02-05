@@ -23,3 +23,7 @@ matrixjoin.out: matrixjoin.c libmatrix.o
 libmatrix.o: libmatrix.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+clean:
+	$(RM) ./*.out
+	$(RM) ./*.o
+
