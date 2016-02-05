@@ -14,6 +14,18 @@ Compilation
 ending .out
 
 
+Tee
+===
+
+Compilation
+-----------
+See general. To compile only the tee-application, run `make teeparty.out`
+
+Usage
+-----
+Run using `<input> | teeparty.out <output>`
+
+
 Matrix Operations
 =================
 
@@ -80,6 +92,10 @@ In order to increase performance on high number of threads (where the algorithm
 doesn't keep it's performance from 4 threads), the algorithm which recursively
 decends could be adapted to have n unique paths rather than 2 to avoid the
 threads having to pay the performance for hitting the locked mutex.
+
+A production implementation would also probably defer to a sorting algorithm
+with less adminastrive overhead on lists with less than X elements where X is
+an arbitrary small number.
 
 <Laptop>
 Fedora Linux 23
