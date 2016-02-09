@@ -1,8 +1,8 @@
 /* matrix summation using OpenMP
 
    usage with gcc (version 4.2 or higher required):
-     gcc -O -fopenmp -o matrixSum-openmp matrixSum-openmp.c
-     ./matrixSum-openmp size numWorkers
+   gcc -O -fopenmp -o matrixSum-openmp matrixSum-openmp.c
+   ./matrixSum-openmp size numWorkers
 
 */
 
@@ -28,8 +28,8 @@ typedef struct {
 
 void minmaxprint(matrixelem min, matrixelem max) {
   printf("Min: %li [%li, %li]; Max: %li [%li, %li]\n",
-         min.value, min.row, min.column,
-         max.value, max.row, max.column);
+      min.value, min.row, min.column,
+      max.value, max.row, max.column);
 }
 
 /* read command line, initialize, and create threads */
@@ -47,9 +47,9 @@ int main(int argc, char *argv[]) {
 
   /* initialize the matrix */
   for (i = 0; i < size; i++) {
-	  for (j = 0; j < size; j++) {
+    for (j = 0; j < size; j++) {
       matrix[i][j] = rand()%99;
-	  }
+    }
   }
 
   min.column = 0;
@@ -83,20 +83,20 @@ int main(int argc, char *argv[]) {
         total += val;
       }
     }
-#pragma omp critical 
+#pragma omp critical
     {
       if (min.value > localmin.value) {
         min = localmin;
       }
     }
-#pragma omp critical 
+#pragma omp critical
     {
       if (max.value < localmax.value) {
         max = localmax;
       }
     }
 #pragma omp taskwait
-#pragma omp master 
+#pragma omp master
     {
       end_time = omp_get_wtime();
       printf("the total is %ld\n", total);
@@ -106,5 +106,5 @@ int main(int argc, char *argv[]) {
   }
 
 
-  }
+}
 
