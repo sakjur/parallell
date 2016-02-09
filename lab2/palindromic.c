@@ -43,8 +43,7 @@ int main(int argc, char *argv[]) {
   int64_t numWorkers;
   size_t words, len;
   char** buffer = malloc(sizeof(char*) * MAXWORDS);
-  bool* palindromic = malloc(sizeof(bool) * MAXWORDS);
-  memset(palindromic, 0, MAXWORDS*sizeof(bool));
+  bool* palindromic = calloc(MAXWORDS, sizeof(bool));
 
   char tmp[MAXWORDLEN + 1];
   memset(tmp, 0, MAXWORDLEN+1);
@@ -54,8 +53,8 @@ int main(int argc, char *argv[]) {
 
   FILE* file = fopen("words", "r");
   for (words = 0; words < MAXWORDS; words++) {
-    buffer[words] = malloc(MAXWORDLEN + 1); // Allocate space for every word
-    buffer[words][MAXWORDLEN + 1] = 0; // Padding
+    buffer[words] = calloc(1, MAXWORDLEN + 1); // Allocate space for every word
+    buffer[words][MAXWORDLEN] = 0; // Padding
 
     // Read word from file
     char* rv = fgets(buffer[words], MAXWORDLEN, file);
@@ -65,6 +64,7 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+  fclose(file);
 
   omp_set_num_threads(numWorkers);
   double start_time, end_time;
@@ -72,7 +72,8 @@ int main(int argc, char *argv[]) {
 #pragma omp parallel for
   for (size_t pos = 0; pos < words; pos++) {
     len = strlen(buffer[pos]);
-    buffer[pos][len-1] = 0; // Replace the new line character with \0
+    // Replace the new line character with \0
+    buffer[pos][len-1] = 0;
     for (int i = 0; i < len-1; i++) {
       // Make all characters lowercase
       buffer[pos][i] = tolower(buffer[pos][i]);
@@ -80,17 +81,23 @@ int main(int argc, char *argv[]) {
   }
 #pragma omp parallel for private(tmp)
   for (size_t pos = 0; pos < words; pos++) {
-   reverse(buffer[pos], tmp);
+    reverse(buffer[pos], tmp);
     int64_t found = binary_search(tmp, buffer, words);
     if (found > 0)
       palindromic[pos] = true;
   }
   end_time = omp_get_wtime();
 
-  for (size_t pos = 0; pos < words; pos++) {
+  FILE* output = fopen("output", "w");
+  for (size_t pos = 0; pos <= words; pos++) {
     if (palindromic[pos])
-      printf("%s\n", buffer[pos]);
+      fprintf(output, "%s\n", buffer[pos]);
+    free(buffer[pos]);
   }
+
+  fclose(output);
+  free(buffer);
+  free(palindromic);
 
   printf("Operation took %g s with %li threads\n",
       end_time - start_time, numWorkers);
