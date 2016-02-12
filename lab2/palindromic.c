@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define MAXWORKERS 8   /* maximum number of workers */
-#define MAXWORDS 500000
+#define MAXWORDS 5000000
 #define MAXWORDLEN 120
 
 void reverse(char* str, char* target) {
@@ -69,6 +69,12 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+
+  if (words == MAXWORDS) {
+    printf("Warning, %d words reached. Aborting.\n", MAXWORDS);
+    return -1;
+  }
+
   fclose(file);
 
   omp_set_num_threads(numWorkers);
@@ -79,7 +85,7 @@ int main(int argc, char *argv[]) {
     len = strlen(buffer[pos]);
     // Replace the new line character with \0
     buffer[pos][len-1] = 0;
-    for (int i = 0; i < len-1; i++) {
+    for (int i = 0; i < len; i++) {
       // Make all characters lowercase
       buffer[pos][i] = tolower(buffer[pos][i]);
     }

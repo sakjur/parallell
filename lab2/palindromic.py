@@ -4,7 +4,7 @@ words = {}
 
 reverse = lambda w: w[::-1]
 
-with open("names") as f:
+with open("/home/sakjur/wikipediapages") as f:
   for line in f:
     line = line.lower()
     line = line.strip()
