@@ -26,7 +26,7 @@ int64_t binary_search(char* str, char** dict, size_t words) {
     char* val = dict[pos];
     cmp = strcmp(str, val);
     if (cmp < 0) {
-      max = pos - 1;
+      max = pos;
     } else if (cmp == 0) {
       return pos;
     } else if (cmp > 0) {
@@ -48,10 +48,15 @@ int main(int argc, char *argv[]) {
   char tmp[MAXWORDLEN + 1];
   memset(tmp, 0, MAXWORDLEN+1);
 
-  numWorkers = (argc > 1)? atoi(argv[1]) : MAXWORKERS;
+  if (argc < 2) {
+    printf("Usage: %s <input file> [<number of workers>]\n", argv[0]);
+    return -1;
+  }
+
+  numWorkers = (argc > 2)? atoi(argv[2]) : MAXWORKERS;
   if (numWorkers > MAXWORKERS) numWorkers = MAXWORKERS;
 
-  FILE* file = fopen("words", "r");
+  FILE* file = fopen(argv[1], "r");
   for (words = 0; words < MAXWORDS; words++) {
     buffer[words] = calloc(1, MAXWORDLEN + 1); // Allocate space for every word
     buffer[words][MAXWORDLEN] = 0; // Padding
