@@ -34,16 +34,12 @@ int main(int argc, char* argv[]) {
   pthread_attr_init(&attr);
   pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 
-  /*
-   * Using the semaphore &food_sem within a single PROCESS on multiple THREADS
-   * by setting pshared to 0. A single bird may pick food at a time
-   */
+  /* Initialize synchronization semaphores */
   sem_init(&bowl_sem, 0, 1);
-  /* Waiting for the bowl to be refilled */
   sem_init(&refill_sem, 0, 0);
-  /* Waking up parent */
   sem_init(&chirp_sem, 0, 0);
 
+  /* Worms in the bowl from the beginning */
   worms = N_WORMS;
 
   // Start num_workers workers
