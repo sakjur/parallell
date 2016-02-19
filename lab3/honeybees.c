@@ -24,8 +24,7 @@ void* bearthread(void*);
 
 int main (int argc, char* argv[]) {
   /*
-   * There are threads for every bird, the baby birds are represented within
-   * an array of pthreads and the parent bird by a pthread directly
+   * The honeybees stored within an array and the bear stored as a variable
    */
   pthread_t honeybees[N_BEES];
   pthread_t bear_id;
@@ -48,6 +47,7 @@ int main (int argc, char* argv[]) {
   }
   pthread_create(&bear_id, &attr, bearthread, NULL);
 
+  // Do not terminate (unless the bear terminates)
   pthread_join(bear_id, NULL);
 
   return 0;
