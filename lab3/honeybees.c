@@ -38,7 +38,7 @@ int main (int argc, char* argv[]) {
   sem_init(&full_sem, 0, 0);
   sem_init(&empty_sem, 0, 0);
 
-  /* Worms in the bowl from the beginning */
+  /* Begin with an empty honey jar */
   jar = 0;
 
   // Start num_workers workers
@@ -56,10 +56,10 @@ int main (int argc, char* argv[]) {
 /* The bees who ŕefills the honeyjar one by one */
 void* workerbee(void* arg) {
   int64_t id = (int64_t) arg;
-  int64_t refillcounter = 0;
+  int64_t refillcounter = 0; // How many times has this bee added honey?
   struct timespec sleeptime = {0};
 
-  /* Fair queueing */
+  /* Fair queueing using FIFO scheduling */
   struct sched_param param;
   pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
 
@@ -69,6 +69,7 @@ void* workerbee(void* arg) {
     refillcounter++;
     printf("[%ld] Delivered honey for the %ldth time. (%ld/%d)\n",
         id, refillcounter, jar, JAR_FULL);
+    /* Wake up bear when jar is filled */
     if (jar >= JAR_FULL) {
       printf("[%ld] Waking up bear\n", id);
       sem_post(&full_sem);
@@ -92,9 +93,10 @@ void* bearthread(void* arg) {
   while(true) {
     sem_wait(&full_sem);
     printf("[BEAR] Yawn. Waking up\n");
+    /* Simulate eating */
     while (jar > 0) {
       jar = jar - 10;
-      if (jar < 0)
+      if (jar < 0) /* Silly bear cannot eat more honey that there is */
         jar = 0;
       printf("[BEAR] Eating #%ld (%ld/%d)\n", eatcounter, jar, JAR_FULL);
       nanosleep(&sleeptime, NULL);
