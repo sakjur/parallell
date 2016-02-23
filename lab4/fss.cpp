@@ -20,12 +20,14 @@ typedef struct tank_t {
 
 class Station;
 
+/* A vehicle which requests or supplies fuel with a fuel space station */
 class SpaceVehicle {
   public:
-    void init(bool, int64_t, int64_t, int64_t, int64_t, Station*);
+    void init(int64_t, bool, int64_t, int64_t, int64_t, int64_t, Station*);
     void* worker(void*);
     void fill_up(int64_t, int64_t);
   private:
+    int64_t id;
     Station* station;
     bool supply_vehicle;
     /* Amount of fuel used by this vehicle for 1 travel unit */
@@ -36,6 +38,7 @@ class SpaceVehicle {
     tank_t tank;
 };
 
+/* Station Class which handles a fuel space station with n pumps */
 class Station {
   public:
     void init(int64_t, int64_t, int64_t);
@@ -50,7 +53,8 @@ class Station {
     tank_t tank;
 };
 
-void SpaceVehicle::init(bool supply_vehicle, int64_t nitrogen, int64_t qufl,
+void SpaceVehicle::init(int64_t id,
+    bool supply_vehicle, int64_t nitrogen, int64_t qufl,
     int64_t nitrogen_consumption, int64_t qufl_consumption,
     Station* station) {
   this->tank.nitrogen_full = nitrogen;
@@ -61,23 +65,39 @@ void SpaceVehicle::init(bool supply_vehicle, int64_t nitrogen, int64_t qufl,
   this->consumption_qufl = qufl_consumption;
   this->supply_vehicle = supply_vehicle;
   this->station = station;
+  this->id = id;
 }
+
 void* SpaceVehicle::worker(void*) {
   struct timespec sleeptime;
-  sleeptime.tv_nsec = 0;
-  sleeptime.tv_sec = 1;
+  int64_t status;
+  srand(this->id);
   while (true) {
-    this->station->request(this, 100, 10);
-    nanosleep(&sleeptime, NULL);
+    sleeptime.tv_nsec = 0;
+    if (!this->supply_vehicle){
+      sleeptime.tv_sec = rand() % 3;
+      status = this->station->request(this, 100, 10);
+      nanosleep(&sleeptime, NULL);
+    } else {
+      printf("[%ld] Supplying to station\n", id);
+      sleeptime.tv_sec = rand() % 7;
+      status = this->station->supply(this, 1000, 100);
+      nanosleep(&sleeptime, NULL); 
+    }
+    if (status == E_NO_FUEL) {
+      printf("Station is out of fuel. Waiting\n");
+    }
   }
 
   return NULL;
 };
+
 void SpaceVehicle::fill_up(int64_t nitrogen, int64_t qufl) {
   this->tank.nitrogen += nitrogen;
   this->tank.qufl += qufl;
-  printf("Filled tank with %ld units of nitrogen and %ld units of quantum fluids\n",
-      nitrogen, qufl);
+  printf("[%ld] %ld / %ld nitrogen and %ld / %ld qufl\n", this->id,
+      this->tank.nitrogen, this->tank.nitrogen_full,
+      this->tank.qufl, this->tank.qufl_full);
 };
 
 void Station::init(int64_t pumps, int64_t nitrogen, int64_t qufl) {
@@ -118,6 +138,7 @@ int64_t Station::request(SpaceVehicle* vehicle, int64_t nitrogen, int64_t qufl) 
   /* Tell the vehicle to wait until the station is refuel'd */
   if (nitrogen > this->tank.nitrogen || qufl > this->tank.qufl) {
     pthread_mutex_unlock(&tank_lock);
+    pthread_mutex_unlock(&this->pump[pump]);
     return E_NO_FUEL;
   } else {
     this->tank.nitrogen -= nitrogen;
@@ -129,11 +150,16 @@ int64_t Station::request(SpaceVehicle* vehicle, int64_t nitrogen, int64_t qufl) 
   }
 
   pthread_mutex_unlock(&this->pump[pump]);
-
   return SUCCESSFUL;
 };
 int64_t Station::supply(SpaceVehicle* vehicle, int64_t nitrogen, int64_t qufl) {
-  return E_INVALID;
+  if (nitrogen < 0 || qufl < 0)
+    return E_INVALID;
+  pthread_mutex_lock(&tank_lock);
+  this->tank.nitrogen += nitrogen;
+  this->tank.qufl += qufl;
+  pthread_mutex_unlock(&tank_lock);
+  return SUCCESSFUL;
 };
 
 void* init_vehicle_thread(void* arg) {
@@ -155,8 +181,11 @@ int main(int argc, char* argv[]) {
   station.init(4, 10000, 1000);
 
   for (int64_t i = 0; i < N_VEHICLES; i++) {
+    bool supply_vehicle = false;
     vehicle[i] = (SpaceVehicle*) malloc(sizeof(SpaceVehicle));
-    vehicle[i]->init(false, 1000, 1000, 100, 100, &station);
+    if (i % 5 == 0)
+      supply_vehicle = true;
+    vehicle[i]->init(i, supply_vehicle, 1000, 100, 100, 10, &station);
     pthread_create(&vehicle_threads[i], &attr, &init_vehicle_thread, vehicle[i]);
   }
 
