@@ -1,0 +1,6 @@
+Requires clang or gcc with C++11-support.
+
+Change clang to gcc on the top row in the Makefile if clang is not available.
+
+$ make && ./fss.out
+

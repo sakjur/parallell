@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+/* CONSTANTS! */
 #define N_VEHICLES 8
 #define N_ARRIVALS 10
 
@@ -15,6 +16,7 @@
 #define E_INVALID -3
 #define E_FULL -4
 
+/* The tank_t type is used to describe a fuel tank */
 typedef struct tank_t {
   int64_t nitrogen;
   int64_t qufl;
@@ -22,6 +24,7 @@ typedef struct tank_t {
   int64_t qufl_full;
 } tank_t;
 
+/* Pre-define the Station class since it's used by SpaceVehicle */
 class Station;
 
 /* A vehicle which requests or supplies fuel with a fuel space station */
@@ -62,4 +65,5 @@ class Station {
     tank_t tank;
 };
 
+/* Wrapper to start a vehicle worker (since method pointers are not legal) */
 void* init_vehicle_thread(void* arg);

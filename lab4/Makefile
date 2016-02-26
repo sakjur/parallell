@@ -1,14 +1,14 @@
 CC=clang++
-CFLAGS=-std=c++14 -g -Wall -D_XOPEN_SOURCE=600 -O3
-DEPS=spacestation.h
+CFLAGS=-std=c++11 -g -Wall -D_XOPEN_SOURCE=600 -O3
+DEPS=spacestation.hpp
 
 all: fss.out
 
-fss.out: fss.cpp spacestation.o vehicle.o spacestation.h
+fss.out: fss.cpp spacestation.o vehicle.o spacestation.hpp
 	$(CC) $(CFLAGS) -lpthread -o $@ $< spacestation.o vehicle.o
 
 %.o: %.cpp $(DEPS)
-		$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) $(CFLAGS) -c -o $@ $< 
 
 clean:
 	$(RM) ./*.out
