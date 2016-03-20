@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <sys/time.h>
 
 void calculate_forces(int64_t count, body* vec) {
   for (int64_t i = 0; i < count; i++) {
@@ -25,20 +27,7 @@ void calculate_forces(int64_t count, body* vec) {
 
 void move_bodies(int64_t count, body* vec) {
   for (int64_t i = 0; i < count; i++){
-    point deltav;
-    point deltap;
-    deltav.x = vec[i].force.x/vec[i].mass * DELTA_T;
-    deltav.y = vec[i].force.y/vec[i].mass * DELTA_T;
-
-    deltap.x = vec[i].velocity.x + deltav.x/2 * DELTA_T;
-    deltap.y = vec[i].velocity.y + deltav.y/2 * DELTA_T;
-
-    vec[i].velocity.x = vec[i].velocity.x + deltav.x;
-    vec[i].velocity.y = vec[i].velocity.y + deltav.y;
-    vec[i].position.x = vec[i].position.x + deltap.x;
-    vec[i].position.y = vec[i].position.y + deltap.y;
-    vec[i].force.x = 0;
-    vec[i].force.y = 0;
+    apply_deltav(&vec[i]);
   }
 }
 
@@ -53,18 +42,17 @@ void print_body(body b, bool more_items, FILE* output) {
 }
 
 int main (int argc, char* argv[]) {
-  int time_limit = 2000;
-  int n_bodies = 120;
+  int time_limit = 350;
+  int n_bodies = 240;
   FILE* output = fopen("output.json", "w");
 
   body bodies[n_bodies];
   memset(bodies, 0, sizeof(body) * n_bodies);
   for (int i = 0; i < n_bodies; i++) {
-    bodies[i].id = i;
-    bodies[i].position.x = i*0.05;
-    bodies[i].position.y = i*0.05;
-    bodies[i].mass = 10000;
+    row_of_twenty(&bodies[i], i);
   }
+
+  struct timeval start = start_timer();
   fprintf(output, "{");
   for (int64_t t = 0; t < time_limit; t++) {
     calculate_forces(n_bodies, bodies);
@@ -76,11 +64,12 @@ int main (int argc, char* argv[]) {
       else
         print_body(bodies[i], true, output);
     };
-    if (t == time_limit-1) 
+    if (t == time_limit-1)
       fprintf(output, "  }\n");
     else
       fprintf(output, "  },\n");
   }
   fprintf(output, "}\n");
+  stop_timer(start);
 }
 
