@@ -10,6 +10,7 @@ typedef struct worker_info {
   int64_t total_workers;
   int64_t count;
   int64_t time_limit;
+  FILE* output;
   body* bodies;
   point** forces;
 } worker_info;
@@ -62,16 +63,31 @@ void move_bodies(worker_info data) {
 }
 
 int main(int argc, char* argv[]) {
-  int time_limit = 350;
-  int n_bodies = 240;
-  int n_workers = 1;
+  int time_limit = TIME_DEFAULT;
+  int n_bodies = BODIES_DEFAULT;
+  int n_workers = WORKERS_DEFAULT;
+
+  if (argc > 1) {
+    n_bodies = atoi(argv[1]);
+  }
+  if (argc > 2) {
+    time_limit = atoi(argv[2]);
+  }
+  if (argc > 3) {
+    n_workers = atoi(argv[3]);
+    if (n_workers > 64) {
+      n_workers = 64;
+    }
+  }
+
   pthread_t worker_threads[n_workers];
+  worker_info workers_data[n_workers];
   pthread_attr_t attr;
   /* set global thread attributes */
   pthread_attr_init(&attr);
   pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 
-  FILE* output = fopen("output.json", "w");
+  FILE* output = fopen("output", "w");
 
   body* bodies = malloc(sizeof(body) * n_bodies);
   memset(bodies, 0, sizeof(body) * n_bodies);
@@ -80,19 +96,23 @@ int main(int argc, char* argv[]) {
   }
 
   point** forces = malloc(sizeof(point*) * n_workers);
+  printf("[simulation] %d bodies over %d time steps with %d workers\n",
+      n_bodies, time_limit, n_workers);
   struct timeval start = start_timer();
   for (int w = 0; w < n_workers; w++) {
-    worker_info workers_data;
     forces[w] = malloc(sizeof(point) * n_bodies);
-    memset(bodies, 0, sizeof(point) * n_bodies);
-    workers_data.worker_id = w;
-    workers_data.total_workers = n_workers;
-    workers_data.forces = forces;
-    workers_data.count = n_bodies;
-    workers_data.bodies = bodies;
-    workers_data.time_limit = time_limit;
-    pthread_create(&worker_threads[w], &attr, Worker, (void*) &workers_data);
-  } 
+    memset(forces[w], 0, sizeof(point) * n_bodies);
+    workers_data[w].worker_id = w;
+    workers_data[w].total_workers = n_workers;
+    workers_data[w].forces = forces;
+    workers_data[w].count = n_bodies;
+    workers_data[w].bodies = bodies;
+    workers_data[w].output = output;
+    workers_data[w].time_limit = time_limit;
+  }
+  for (int w = 0; w < n_workers; w++) {
+    pthread_create(&worker_threads[w], &attr, Worker, (void*) &workers_data[w]);
+  }
   for (int w = 0; w < n_workers; w++) {
     pthread_join(worker_threads[w], NULL);
   }
@@ -102,14 +122,17 @@ int main(int argc, char* argv[]) {
 void* Worker (void* d) {
   worker_info* data = (worker_info*) d;
   for (int64_t t = 0; t < data->time_limit; t++) {
+#ifdef DEBUG_MODE
+    for (int64_t i = data->worker_id; i < data->count; i+=data->total_workers) {
+      fprintf(data->output, "%ld %ld %lf %lf\n", t, i,
+          data->bodies[i].position.x,
+          data->bodies[i].position.y);
+    };
+#endif
     calculate_forces(*data);
     barrier(data->total_workers);
     move_bodies(*data);
     barrier(data->total_workers);
-    for (int64_t i = data->worker_id; i < data->count; i+=data->total_workers) {
-      printf("%ld %ld x %lf y %lf\n", t, i, data->bodies[i].position.x,
-          data->bodies[i].position.y);
-    };
   }
   return NULL;
 }

@@ -2,6 +2,10 @@
 #include <stdint.h>
 #include <sys/time.h>
 
+#define TIME_DEFAULT 200
+#define BODIES_DEFAULT 120
+#define WORKERS_DEFAULT 2
+
 typedef struct point {
 	double x;
 	double y;

@@ -31,20 +31,16 @@ void move_bodies(int64_t count, body* vec) {
   }
 }
 
-void print_body(body b, bool more_items, FILE* output) {
-  char comma = ' ';
-  if (more_items) comma = ',';
-  fprintf(output, "    \"%ld\": {",
-      b.id);
-  fprintf(output, "\"x\": %lf, \"y\": %lf,", b.position.x, b.position.y);
-  fprintf(output, "\"vx\": %lf, \"vy\": %lf", b.velocity.x, b.velocity.y);
-  fprintf(output, "}%c\n", comma);
-}
-
 int main (int argc, char* argv[]) {
-  int time_limit = 350;
-  int n_bodies = 240;
-  FILE* output = fopen("output.json", "w");
+  int time_limit = TIME_DEFAULT;
+  int n_bodies = BODIES_DEFAULT;
+
+  if (argc > 1) {
+    n_bodies = atoi(argv[1]);
+  }
+  if (argc > 2) {
+    time_limit = atoi(argv[2]);
+  }
 
   body bodies[n_bodies];
   memset(bodies, 0, sizeof(body) * n_bodies);
@@ -52,24 +48,19 @@ int main (int argc, char* argv[]) {
     row_of_twenty(&bodies[i], i);
   }
 
+  printf("[simulation] %d bodies over %d time steps\n", n_bodies, time_limit);
   struct timeval start = start_timer();
-  fprintf(output, "{");
   for (int64_t t = 0; t < time_limit; t++) {
     calculate_forces(n_bodies, bodies);
     move_bodies(n_bodies, bodies);
-    fprintf(output, "  \"%ld\": {\n", t);
+#ifdef DEBUG_MODE
+    FILE* output = fopen("output", "w");
     for (int64_t i = 0; i < n_bodies; i++) {
-      if (i == n_bodies-1)
-        print_body(bodies[i], false, output);
-      else
-        print_body(bodies[i], true, output);
+      fprintf(output, "%ld %ld %lf %lf\n", t, i, bodies[i].position.x,
+        bodies[i].position.y);
     };
-    if (t == time_limit-1)
-      fprintf(output, "  }\n");
-    else
-      fprintf(output, "  },\n");
+#endif
   }
-  fprintf(output, "}\n");
   stop_timer(start);
 }
 
