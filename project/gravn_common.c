@@ -4,6 +4,8 @@
 #include <pthread.h>
 
 void row_of_twenty(body* o, int64_t i) {
+  /* Simple initializer for the bodies where the bodies are stacked up in
+   * columns containing 20 elemens each */
   o->id = i;
   o->position.x = i / 20;
   o->position.y = i % 20;
@@ -11,12 +13,15 @@ void row_of_twenty(body* o, int64_t i) {
 }
 
 struct timeval start_timer() {
+  /* Return the current time. Wrapper for gettimeofday */
   struct timeval time;
   gettimeofday(&time, NULL);
   return time;
 }
 
 void stop_timer(struct timeval start_time) {
+  /* Calculate the difference between start_time and current time and print
+   * it to stdout */
   struct timeval stop_time;
   gettimeofday(&stop_time, NULL);
 
@@ -31,19 +36,20 @@ void stop_timer(struct timeval start_time) {
 }
 
 void apply_deltav(body* o) {
-    point deltav, deltap;
-    deltav.x = o->force.x/o->mass * DELTA_T;
-    deltav.y = o->force.y/o->mass * DELTA_T;
+  /* Move the bodies according to deltav and adjust their velocity property */
+  point deltav, deltap;
+  deltav.x = o->force.x/o->mass * DELTA_T;
+  deltav.y = o->force.y/o->mass * DELTA_T;
 
-    deltap.x = (o->velocity.x + deltav.x/2) * DELTA_T;
-    deltap.y = (o->velocity.y + deltav.y/2) * DELTA_T;
+  deltap.x = (o->velocity.x + deltav.x/2) * DELTA_T;
+  deltap.y = (o->velocity.y + deltav.y/2) * DELTA_T;
 
-    o->velocity.x = o->velocity.x + deltav.x;
-    o->velocity.y = o->velocity.y + deltav.y;
-    o->position.x = o->position.x + deltap.x;
-    o->position.y = o->position.y + deltap.y;
-    o->force.x = 0;
-    o->force.y = 0;
+  o->velocity.x = o->velocity.x + deltav.x;
+  o->velocity.y = o->velocity.y + deltav.y;
+  o->position.x = o->position.x + deltap.x;
+  o->position.y = o->position.y + deltap.y;
+  o->force.x = 0;
+  o->force.y = 0;
 }
 
 int64_t num_arrived = 0;

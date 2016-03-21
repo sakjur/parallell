@@ -11,6 +11,7 @@ typedef struct point {
 	double y;
 } point;
 
+/* Representatio of a body */
 typedef struct body {
 	int64_t id;
 	point position;
@@ -21,8 +22,12 @@ typedef struct body {
 
 // 6.67e-11
 #define NEWTON_G (.0000000000667)
+
+// This is really just any arbitrary number. The simulation will simulate
+//  this long "time" between the particle movements depending on this value
 #define DELTA_T 1
 
+// gravn_common.h API function definitions
 void row_of_twenty(body*, int64_t);
 struct timeval start_timer();
 void stop_timer(struct timeval);

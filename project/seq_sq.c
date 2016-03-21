@@ -7,6 +7,7 @@
 #include <sys/time.h>
 
 void calculate_forces(int64_t count, body* vec) {
+  /* Calculate the graviational forces between the bodies in the 'verse */
   for (int64_t i = 0; i < count; i++) {
     for (int64_t j = i + 1; j < count; j++) {
       double distance = sqrt(pow(vec[i].position.x - vec[j].position.x, 2) +
@@ -26,15 +27,18 @@ void calculate_forces(int64_t count, body* vec) {
 }
 
 void move_bodies(int64_t count, body* vec) {
+  /* Apply the forces of the bodies using the common apply_deltav function */
   for (int64_t i = 0; i < count; i++){
     apply_deltav(&vec[i]);
   }
 }
 
 int main (int argc, char* argv[]) {
+  /* Run the simulation */
   int time_limit = TIME_DEFAULT;
   int n_bodies = BODIES_DEFAULT;
 
+  /* Command line arguments */
   if (argc > 1) {
     n_bodies = atoi(argv[1]);
   }
@@ -42,6 +46,7 @@ int main (int argc, char* argv[]) {
     time_limit = atoi(argv[2]);
   }
 
+  /* Initialize the bodies at their first position */
   body bodies[n_bodies];
   memset(bodies, 0, sizeof(body) * n_bodies);
   for (int i = 0; i < n_bodies; i++) {
@@ -50,10 +55,12 @@ int main (int argc, char* argv[]) {
 
   printf("[simulation] %d bodies over %d time steps\n", n_bodies, time_limit);
   struct timeval start = start_timer();
+  /* Do simulation */
   for (int64_t t = 0; t < time_limit; t++) {
     calculate_forces(n_bodies, bodies);
     move_bodies(n_bodies, bodies);
 #ifdef DEBUG_MODE
+    /* Avoid I/O unless debug-mode is activated */
     FILE* output = fopen("output", "w");
     for (int64_t i = 0; i < n_bodies; i++) {
       fprintf(output, "%ld %ld %lf %lf\n", t, i, bodies[i].position.x,

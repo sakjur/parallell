@@ -18,13 +18,16 @@ typedef struct worker_info {
 void* Worker (void* d);
 
 void calculate_forces(worker_info data) {
+  /* Calculate how the forces apply to the different bodies */
   int64_t worker_id, total_workers, count;
   worker_id = data.worker_id;
   total_workers = data.total_workers;
   count = data.count;
   body* vec = data.bodies;
   point* force = data.forces[worker_id];
-  for (int64_t i = worker_id; i < count; i+=total_workers) {
+  /* Decide what bodies this worker applies to. Pattern ABCABCABC is mostly
+   * fair and simple and good 'nuf */
+  for (int64_t i = worker_id; i < count; i+=total_workers) { 
     for (int64_t j = i + 1; j < count; j++) {
       double distance = sqrt(pow(vec[i].position.x - vec[j].position.x, 2) +
           pow(vec[i].position.y - vec[j].position.y, 2));
@@ -43,6 +46,7 @@ void calculate_forces(worker_info data) {
 }
 
 void move_bodies(worker_info data) {
+  /* Apply the forces calculated in calculate_forces on the bodies */
   point force;
   force.x = 0.0;
   force.y = 0.0;
@@ -67,6 +71,7 @@ int main(int argc, char* argv[]) {
   int n_bodies = BODIES_DEFAULT;
   int n_workers = WORKERS_DEFAULT;
 
+  /* Get command line arguments */
   if (argc > 1) {
     n_bodies = atoi(argv[1]);
   }
@@ -80,10 +85,12 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  /* The thread variables and properties for the workers */
   pthread_t worker_threads[n_workers];
   worker_info workers_data[n_workers];
-  pthread_attr_t attr;
+
   /* set global thread attributes */
+  pthread_attr_t attr;
   pthread_attr_init(&attr);
   pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 
@@ -95,11 +102,14 @@ int main(int argc, char* argv[]) {
     row_of_twenty(&bodies[i], i);
   }
 
+  /* Allocate space for the pointers to the worker point-arrays */
   point** forces = malloc(sizeof(point*) * n_workers);
   printf("[simulation] %d bodies over %d time steps with %d workers\n",
       n_bodies, time_limit, n_workers);
+
   struct timeval start = start_timer();
   for (int w = 0; w < n_workers; w++) {
+    /* Iterate over all the workers and create their properties */
     forces[w] = malloc(sizeof(point) * n_bodies);
     memset(forces[w], 0, sizeof(point) * n_bodies);
     workers_data[w].worker_id = w;
@@ -120,6 +130,8 @@ int main(int argc, char* argv[]) {
 }
 
 void* Worker (void* d) {
+  /* A worker is a thread which iterates over a predefined set of bodies
+   * and calculates their new properties */
   worker_info* data = (worker_info*) d;
   for (int64_t t = 0; t < data->time_limit; t++) {
 #ifdef DEBUG_MODE
