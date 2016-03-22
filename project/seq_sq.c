@@ -55,19 +55,24 @@ int main (int argc, char* argv[]) {
 
   printf("[simulation] %d bodies over %d time steps\n", n_bodies, time_limit);
   struct timeval start = start_timer();
+#ifdef DEBUG_MODE
+  FILE* output = fopen("output", "w");
+#endif
   /* Do simulation */
   for (int64_t t = 0; t < time_limit; t++) {
     calculate_forces(n_bodies, bodies);
     move_bodies(n_bodies, bodies);
 #ifdef DEBUG_MODE
     /* Avoid I/O unless debug-mode is activated */
-    FILE* output = fopen("output", "w");
     for (int64_t i = 0; i < n_bodies; i++) {
       fprintf(output, "%ld %ld %lf %lf\n", t, i, bodies[i].position.x,
         bodies[i].position.y);
     };
 #endif
   }
+#ifdef DEBUG_MODE
+  fclose(output);
+#endif
   stop_timer(start);
 }
 

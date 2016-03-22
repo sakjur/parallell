@@ -32,5 +32,5 @@ gif = animation.ArtistAnimation(figure, frames, interval=50,
 gif.save('nbody.mp4', fps=24, extra_args=['-vcodec', 'libx264'])
 print("Printed animation to 'nbody.mp4'")
 
-#plt.show()
+plt.show()
 

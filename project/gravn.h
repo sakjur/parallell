@@ -33,3 +33,4 @@ struct timeval start_timer();
 void stop_timer(struct timeval);
 void apply_deltav(body*);
 void barrier(int64_t total_workers);
+void copy_body(body* from, body* to);

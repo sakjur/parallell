@@ -32,7 +32,7 @@ void stop_timer(struct timeval start_time) {
     microseconds_total = 1000000 + microseconds_total;
   }
 
-  printf("[simulation_time] %ld.%4ld seconds\n", seconds_total, microseconds_total);
+  printf("[simulation_time] %ld.%06ld seconds\n", seconds_total, microseconds_total);
 }
 
 void apply_deltav(body* o) {
