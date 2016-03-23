@@ -1,4 +1,4 @@
-CC=clang
+CC=gcc
 CFLAGS=-std=c99 -g -Wall -D_XOPEN_SOURCE=600 -O0
 
 all: seq_sq.out seq_sq.debug.out par_sq.out par_sq.debug.out seq_nlg.out \

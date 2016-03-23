@@ -10,6 +10,8 @@ void row_of_twenty(body* o, int64_t i) {
   o->position.x = i / 20;
   o->position.y = i % 20;
   o->mass = 100000;
+  o->force.x = 0;
+  o->force.y = 0;
 }
 
 struct timeval start_timer() {

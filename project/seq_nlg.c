@@ -8,6 +8,11 @@
 #define CUTOFF_DISTANCE_DEFAULT 2
 #define QUADS_MAX_ELEMENTS 5
 
+typedef struct body_list {
+  int64_t cnt;
+  body** list;
+} body_list;
+
 typedef struct quads {
   int64_t id;
   struct quads* children[4];
@@ -21,6 +26,22 @@ typedef struct quads {
 } quads;
 
 void divide(int64_t, quads*);
+
+double point_distance(point a, point b) {
+  double rv = sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+  return rv;
+}
+
+point point_direction(point a, point b) {
+  point direction;
+  direction.x = b.x - a.x;
+  direction.y = b.y - a.y;
+  return direction;
+}
+
+double point_magnitude(double mass_a, double mass_b, double distance) {
+  return ((NEWTON_G*mass_a*mass_b) / pow(distance, 2));
+}
 
 void clean_tree(quads* root, int64_t level) {
   if (level == 0) {
@@ -66,35 +87,40 @@ double distance_to_quad(point* origin, quads* target) {
   }
 }
 
-body** relevant_forces(point* origin, double cutoff_distance, quads* root) {
+void relevant_forces(body* vec, double cutoff_distance, quads* root) {
+  point origin = vec->position;
   for (int i = 0; i < 4; i++) {
-    double distance = distance_to_quad(origin, root->children[i]);
-    printf("Distance between (%lf, %lf) and (%ld %ld (%lf %lf %lf %lf)) is %lf\n",
-        origin->x, origin->y, root->children[i]->id,
-        root->children[i]->child_count, root->children[i]->nw.y,
-        root->children[i]->se.x, root->children[i]->se.y,
-        root->children[i]->nw.x, distance);
+    double distance = distance_to_quad(&origin, root->children[i]);
+    if (distance > cutoff_distance && root->children[i]->child_count) {
+      quads* target = root->children[i];
+      double pdistance = point_distance(vec->position, target->center_of_mass);
+      double magnitude = point_magnitude(vec->mass, target->sum_mass, pdistance);
+      point direction = point_direction(vec->position, target->center_of_mass);
+      vec->force.x = vec->force.x + magnitude*direction.x/pdistance;
+      vec->force.y = vec->force.y + magnitude*direction.y/pdistance;
+    } else if (root->children[i]->child_count > QUADS_MAX_ELEMENTS) {
+      relevant_forces(vec, cutoff_distance, root->children[i]);
+    } else if (root->children[i]->child_count == 0) {
+      continue;
+    } else {
+      for (int j = 0; j < root->children[i]->child_count; j++) {
+        body* target = root->children[i]->bodies[j];
+        double pdistance = point_distance(vec->position, target->position);
+        if (pdistance == 0) {
+          continue;
+        }
+        double magnitude = point_magnitude(vec->mass, target->mass, pdistance);
+        point direction = point_direction(vec->position, target->position);
+        vec->force.x = vec->force.x + magnitude*direction.x/pdistance;
+        vec->force.y = vec->force.y + magnitude*direction.y/pdistance;
+      }
+    }
   }
 }
 
 void calculate_forces(int64_t count, quads* root, double cutoff_distance) {
-  body** vec = root->bodies;
   for (int64_t i = 0; i < count; i++) {
-    relevant_forces(&vec[i]->position, cutoff_distance, root);
-    for (int64_t j = i + 1; j < count; j++) {
-      double distance = sqrt(pow(vec[i]->position.x - vec[j]->position.x, 2) +
-          pow(vec[i]->position.y - vec[j]->position.y, 2));
-      double magnitude = (NEWTON_G*vec[i]->mass*vec[i]->mass) /
-        (pow(distance, 2));
-      point direction;
-      direction.x = vec[j]->position.x - vec[i]->position.x;
-      direction.y = vec[j]->position.y - vec[i]->position.y;
-
-      vec[i]->force.x = vec[i]->force.x + magnitude*direction.x/distance;
-      vec[j]->force.x = vec[j]->force.x - magnitude*direction.x/distance;
-      vec[i]->force.y = vec[i]->force.y + magnitude*direction.y/distance;
-      vec[j]->force.y = vec[j]->force.y - magnitude*direction.y/distance;
-    }
+    relevant_forces(root->bodies[i], cutoff_distance, root);
   }
 }
 
@@ -125,12 +151,16 @@ void inner_divide(quads* quad) {
     mass_position_sum.y = 0;
 
     for (int i = 0; i < 4; i++) {
-      mass_position_sum.x += quad->children[i]->center_of_mass.x;
-      mass_position_sum.y += quad->children[i]->center_of_mass.y;
+      mass_position_sum.x += quad->children[i]->center_of_mass.x
+        * quad->children[i]->sum_mass;
+      mass_position_sum.y += quad->children[i]->center_of_mass.y
+        * quad->children[i]->sum_mass;
     }
 
-    quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
-    quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+    if (quad->sum_mass != 0) {
+      quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
+      quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+    }
   } else {
     point mass_position_sum;
     mass_position_sum.x = 0;
@@ -144,8 +174,10 @@ void inner_divide(quads* quad) {
       quad->sum_mass += quad->bodies[child]->mass;
     }
 
-    quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
-    quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+    if (quad->sum_mass != 0) {
+      quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
+      quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+    }
   }
 }
 
@@ -154,6 +186,8 @@ quads* init_child(int id, point middle, int64_t parent_count) {
     child->id = id;
     child->child_count = 0;
     child->sum_mass = 0;
+    child->center_of_mass.x = 0;
+    child->center_of_mass.y = 0;
     child->bodies = malloc(sizeof(body*)*parent_count);
     child->se.x = middle.x;
     child->se.y = middle.y;
@@ -176,16 +210,16 @@ point get_middle(int64_t count, body** vec) {
 }
 
 void divide(int64_t count, quads* root) {
-  point middle = get_middle(count, root->bodies);
+  body** vec = root->bodies;
+  point middle = get_middle(count, vec);
   root->sum_mass = 0;
   for (int i = 0; i < 4; i++) {
     root->children[i] = init_child(i, middle, count);
   }
 
-  body** vec = root->bodies;
   for (int64_t i = 0; i < count; i++) {
+    root->sum_mass += vec[i]->mass;
     if (vec[i]->position.y > middle.y) { // N
-      root->sum_mass += vec[i]->mass;
       if (vec[i]->position.x > middle.x) { // NE
         insert_body(root->children[0], vec[i]);
       } else if (vec[i]->position.x <= middle.x) { // NW
@@ -228,6 +262,10 @@ int main(int argc, char* argv[]) {
   for (int i = 0; i < n_bodies; i++) {
     root->bodies[i] = malloc(sizeof(body));
     row_of_twenty(root->bodies[i], i);
+    root->nw.x = min(root->nw.x, root->bodies[i]->position.x);
+    root->nw.y = max(root->nw.y, root->bodies[i]->position.y);
+    root->se.x = max(root->se.x, root->bodies[i]->position.x);
+    root->se.y = min(root->se.y, root->bodies[i]->position.y);
   }
 
   printf("[simulation] %d bodies over %d time steps -- nlogn\n", n_bodies, time_limit);
