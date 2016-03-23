@@ -22,27 +22,6 @@ typedef struct quads {
 
 void divide(int64_t, quads*);
 
-/*
-void calculate_forces(int64_t count, body* vec) {
-  for (int64_t i = 0; i < count; i++) {
-    for (int64_t j = i + 1; j < count; j++) {
-      double distance = sqrt(pow(vec[i].position.x - vec[j].position.x, 2) +
-          pow(vec[i].position.y - vec[j].position.y, 2));
-      double magnitude = (NEWTON_G*vec[i].mass*vec[i].mass) /
-        (pow(distance, 2));
-      point direction;
-      direction.x = vec[j].position.x - vec[i].position.x;
-      direction.y = vec[j].position.y - vec[i].position.y;
-
-      vec[i].force.x = vec[i].force.x + magnitude*direction.x/distance;
-      vec[j].force.x = vec[j].force.x - magnitude*direction.x/distance;
-      vec[i].force.y = vec[i].force.y + magnitude*direction.y/distance;
-      vec[j].force.y = vec[j].force.y - magnitude*direction.y/distance;
-    }
-  }
-}
-*/
-
 void clean_tree(quads* root, int64_t level) {
   if (level == 0) {
     for (int i = 0; i < 4; i++) {
@@ -61,9 +40,47 @@ void clean_tree(quads* root, int64_t level) {
   }
 }
 
+double distance_to_quad(point* origin, quads* target) {
+  /* Calculates the distance to the closes point at the quad target from the
+   * point origin */
+  
+  // FIXME Every point should be within one of the quads
+  double deltax = 0, deltay = 0;
+
+  if (origin->x > target->se.x) {
+    deltax = origin->x - target->se.x;
+  } else if (origin->x < target->nw.x) {
+    deltax = target->nw.x - origin->x;
+  }
+
+  if (origin->y < target->se.y) {
+    deltay = target->se.y - origin->y;
+  } else if (origin->y > target->nw.y) {
+    deltay = origin->y - target->nw.y;
+  }
+
+  if (deltay == 0 && deltax == 0) {
+    return 0.0; // The point is within the quad
+  } else {
+    return sqrt(pow(deltay, 2) + pow(deltax, 2)); // Pythagoras
+  }
+}
+
+body** relevant_forces(point* origin, double cutoff_distance, quads* root) {
+  for (int i = 0; i < 4; i++) {
+    double distance = distance_to_quad(origin, root->children[i]);
+    printf("Distance between (%lf, %lf) and (%ld %ld (%lf %lf %lf %lf)) is %lf\n",
+        origin->x, origin->y, root->children[i]->id,
+        root->children[i]->child_count, root->children[i]->nw.y,
+        root->children[i]->se.x, root->children[i]->se.y,
+        root->children[i]->nw.x, distance);
+  }
+}
+
 void calculate_forces(int64_t count, quads* root, double cutoff_distance) {
   body** vec = root->bodies;
   for (int64_t i = 0; i < count; i++) {
+    relevant_forces(&vec[i]->position, cutoff_distance, root);
     for (int64_t j = i + 1; j < count; j++) {
       double distance = sqrt(pow(vec[i]->position.x - vec[j]->position.x, 2) +
           pow(vec[i]->position.y - vec[j]->position.y, 2));
@@ -72,7 +89,7 @@ void calculate_forces(int64_t count, quads* root, double cutoff_distance) {
       point direction;
       direction.x = vec[j]->position.x - vec[i]->position.x;
       direction.y = vec[j]->position.y - vec[i]->position.y;
-      
+
       vec[i]->force.x = vec[i]->force.x + magnitude*direction.x/distance;
       vec[j]->force.x = vec[j]->force.x - magnitude*direction.x/distance;
       vec[i]->force.y = vec[i]->force.y + magnitude*direction.y/distance;
@@ -93,20 +110,10 @@ void insert_body(quads* quad, body* o) {
   quad->bodies[quad->child_count] = o;
   quad->child_count++;
 
-  if (quad->nw.x > o->position.x) {
-    quad->nw.x = o->position.x;
-  }
-  if (quad->nw.y < o->position.y) {
-    quad->nw.y = o->position.y;
-  }
-  if (quad->se.x < o->position.x) {
-    quad->se.x = o->position.x;
-  }
-  if (quad->se.y > o->position.y) {
-    quad->se.y = o->position.y;
-  }
-
-
+  quad->nw.x = min(quad->nw.x, o->position.x);
+  quad->nw.y = max(quad->nw.y, o->position.y);
+  quad->se.x = max(quad->se.x, o->position.x);
+  quad->se.y = min(quad->se.y, o->position.y);
 }
 
 void inner_divide(quads* quad) {
@@ -147,7 +154,7 @@ quads* init_child(int id, point middle, int64_t parent_count) {
     child->id = id;
     child->child_count = 0;
     child->sum_mass = 0;
-    child->bodies = malloc(sizeof(body)*parent_count);
+    child->bodies = malloc(sizeof(body*)*parent_count);
     child->se.x = middle.x;
     child->se.y = middle.y;
     child->nw.x = middle.x;
@@ -155,13 +162,13 @@ quads* init_child(int id, point middle, int64_t parent_count) {
     return child;
 }
 
-point get_middle(int64_t count, body* vec) {
+point get_middle(int64_t count, body** vec) {
   point middle;
-  middle.x = vec[0].position.x;
-  middle.y = vec[0].position.y;
+  middle.x = vec[0]->position.x;
+  middle.y = vec[0]->position.y;
   for (int64_t i = 1; i < count; i++) {
-    middle.x += vec[i].position.x;
-    middle.y += vec[i].position.y;
+    middle.x += vec[i]->position.x;
+    middle.y += vec[i]->position.y;
   }
   middle.x = middle.x / count;
   middle.y = middle.y / count;
@@ -169,29 +176,29 @@ point get_middle(int64_t count, body* vec) {
 }
 
 void divide(int64_t count, quads* root) {
-  point middle = get_middle(count, *root->bodies);
+  point middle = get_middle(count, root->bodies);
   root->sum_mass = 0;
   for (int i = 0; i < 4; i++) {
     root->children[i] = init_child(i, middle, count);
   }
 
-  body* vec = *root->bodies;
+  body** vec = root->bodies;
   for (int64_t i = 0; i < count; i++) {
-    if (vec[i].position.y > middle.y) { // N
-      root->sum_mass += vec[i].mass;
-      if (vec[i].position.x > middle.x) { // NE
-        insert_body(root->children[0], &vec[i]);
-      } else if (vec[i].position.x <= middle.x) { // NW
-        insert_body(root->children[1], &vec[i]);
+    if (vec[i]->position.y > middle.y) { // N
+      root->sum_mass += vec[i]->mass;
+      if (vec[i]->position.x > middle.x) { // NE
+        insert_body(root->children[0], vec[i]);
+      } else if (vec[i]->position.x <= middle.x) { // NW
+        insert_body(root->children[1], vec[i]);
       }
-    } else if (vec[i].position.y <= middle.y) { // S
-      if (vec[i].position.x < middle.x) { // SW
-        insert_body(root->children[2], &vec[i]);
-      } else if (vec[i].position.x >= middle.x){ // SE
-        insert_body(root->children[3], &vec[i]);
+    } else if (vec[i]->position.y <= middle.y) { // S
+      if (vec[i]->position.x < middle.x) { // SW
+        insert_body(root->children[2], vec[i]);
+      } else if (vec[i]->position.x >= middle.x){ // SE
+        insert_body(root->children[3], vec[i]);
       }
     } else {
-      printf("Error! x %lf y %lf\n", vec[i].position.x, vec[i].position.y);
+      printf("Error! x %lf y %lf\n", vec[i]->position.x, vec[i]->position.y);
     }
   }
   for (int i = 0; i < 4; i++) {
@@ -214,14 +221,14 @@ int main(int argc, char* argv[]) {
   }
 
   /* Initialize the bodies at their first position */
-  quads* root = malloc(sizeof(quads));
-  root->bodies = malloc(sizeof(body*)*n_bodies);
-  memset(root->bodies, 0, sizeof(body) * n_bodies);
+  point origo;
+  origo.x = 0;
+  origo.y = 0;
+  quads* root = init_child(0, origo, n_bodies);
   for (int i = 0; i < n_bodies; i++) {
     root->bodies[i] = malloc(sizeof(body));
     row_of_twenty(root->bodies[i], i);
   }
-
 
   printf("[simulation] %d bodies over %d time steps -- nlogn\n", n_bodies, time_limit);
   struct timeval start = start_timer();

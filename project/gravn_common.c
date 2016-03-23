@@ -70,3 +70,17 @@ void barrier(int64_t total_workers) {
   }
   pthread_mutex_unlock(&barrier_mutex);
 }
+
+double max(double a, double b) {
+  if (a > b)
+    return a;
+  else
+    return b;
+}
+
+double min(double a, double b) {
+  if (a < b)
+    return a;
+  else
+    return b;
+}
