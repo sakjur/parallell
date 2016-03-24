@@ -87,8 +87,9 @@ double distance_to_quad(point* origin, quads* target) {
   }
 }
 
-void relevant_forces(body* vec, double cutoff_distance, quads* root) {
+int64_t relevant_forces(body* vec, double cutoff_distance, quads* root) {
   point origin = vec->position;
+  int64_t counter = 0;
   for (int i = 0; i < 4; i++) {
     double distance = distance_to_quad(&origin, root->children[i]);
     if (distance > cutoff_distance && root->children[i]->child_count) {
@@ -98,8 +99,9 @@ void relevant_forces(body* vec, double cutoff_distance, quads* root) {
       point direction = point_direction(vec->position, target->center_of_mass);
       vec->force.x = vec->force.x + magnitude*direction.x/pdistance;
       vec->force.y = vec->force.y + magnitude*direction.y/pdistance;
+      counter++;
     } else if (root->children[i]->child_count > QUADS_MAX_ELEMENTS) {
-      relevant_forces(vec, cutoff_distance, root->children[i]);
+      counter += relevant_forces(vec, cutoff_distance, root->children[i]);
     } else if (root->children[i]->child_count == 0) {
       continue;
     } else {
@@ -113,15 +115,23 @@ void relevant_forces(body* vec, double cutoff_distance, quads* root) {
         point direction = point_direction(vec->position, target->position);
         vec->force.x = vec->force.x + magnitude*direction.x/pdistance;
         vec->force.y = vec->force.y + magnitude*direction.y/pdistance;
+        counter++;
       }
     }
   }
+  return counter;
 }
 
 void calculate_forces(int64_t count, quads* root, double cutoff_distance) {
+  int64_t comparisons = 0;
   for (int64_t i = 0; i < count; i++) {
-    relevant_forces(root->bodies[i], cutoff_distance, root);
+    comparisons += relevant_forces(root->bodies[i], cutoff_distance, root);
   }
+#ifdef DEBUG_MODE
+  int64_t naive_approx = (count*count)/2;
+  printf("%ld/%ld comparisons, %lf%% saved\n", comparisons, naive_approx,
+      100*(1-((1.0*comparisons)/naive_approx)));
+#endif
 }
 
 void move_bodies(int64_t count, quads* root) {
@@ -252,6 +262,9 @@ int main(int argc, char* argv[]) {
   }
   if (argc > 2) {
     time_limit = atoi(argv[2]);
+  }
+  if (argc > 3) {
+    cutoff_distance = atof(argv[3]);
   }
 
   /* Initialize the bodies at their first position */
