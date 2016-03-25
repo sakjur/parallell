@@ -31,7 +31,7 @@ void calculate_forces(worker_info data) {
     for (int64_t j = i + 1; j < count; j++) {
       double distance = sqrt(pow(vec[i].position.x - vec[j].position.x, 2) +
           pow(vec[i].position.y - vec[j].position.y, 2));
-      double magnitude = (NEWTON_G*vec[i].mass*vec[i].mass) /
+      double magnitude = (NEWTON_G*vec[i].mass*vec[j].mass) /
         (pow(distance, 2));
       point direction;
       direction.x = vec[j].position.x - vec[i].position.x;
