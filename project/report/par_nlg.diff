@@ -1,0 +1,165 @@
+diff --git a/project/par_nlg.c b/project/par_nlg.c
+index cfabd39..f5146a6 100644
+--- a/project/par_nlg.c
++++ b/project/par_nlg.c
+@@ -21,6 +21,7 @@ typedef struct quads {
+   point se;
+   /* Parallelism */
+   bool done;
++  bool initd;
+   pthread_mutex_t lock;
+ } quads;
+ 
+@@ -34,7 +35,7 @@ typedef struct worker_info {
+   quads* root;
+ } worker_info;
+ 
+-void divide(int64_t, quads*);
++void divide(int64_t, quads*, worker_info*);
+ void* Worker (void*);
+ 
+ double point_distance(point a, point b) {
+@@ -58,6 +59,8 @@ void clean_tree(quads* root, int64_t level) {
+     for (int i = 0; i < 4; i++) {
+       clean_tree(root->children[i], level+1);
+     }
++    root->initd = false;
++    root->done = false;
+   }
+   else if (root->child_count > QUADS_MAX_ELEMENTS) {
+     for (int i = 0; i < 4; i++) {
+@@ -77,7 +80,6 @@ double distance_to_quad(point* origin, quads* target) {
+   /* Calculates the distance to the closes point at the quad target from the
+    * point origin */
+   
+-  // FIXME Every point should be within one of the quads
+   double deltax = 0, deltay = 0;
+ 
+   if (origin->x > target->se.x) {
+@@ -158,6 +160,7 @@ void move_bodies(worker_info* data) {
+ }
+ 
+ void insert_body(quads* quad, body* o) {
++  pthread_mutex_lock(&quad->lock);
+   quad->bodies[quad->child_count] = o;
+   quad->child_count++;
+ 
+@@ -165,12 +168,14 @@ void insert_body(quads* quad, body* o) {
+   quad->nw.y = max(quad->nw.y, o->position.y);
+   quad->se.x = max(quad->se.x, o->position.x);
+   quad->se.y = min(quad->se.y, o->position.y);
++  pthread_mutex_unlock(&quad->lock);
+ }
+ 
+-void inner_divide(quads* quad) {
++void inner_divide(quads* quad, worker_info* data) {
+   if (quad->child_count > QUADS_MAX_ELEMENTS) {
+-    divide(quad->child_count, quad);
++    divide(quad->child_count, quad, data);
+ 
++    pthread_mutex_lock(&quad->lock);
+     point mass_position_sum;
+     mass_position_sum.x = 0;
+     mass_position_sum.y = 0;
+@@ -186,7 +191,9 @@ void inner_divide(quads* quad) {
+       quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
+       quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+     }
++    pthread_mutex_unlock(&quad->lock);
+   } else {
++    pthread_mutex_lock(&quad->lock);
+     point mass_position_sum;
+     mass_position_sum.x = 0;
+     mass_position_sum.y = 0;
+@@ -203,11 +210,14 @@ void inner_divide(quads* quad) {
+       quad->center_of_mass.x = mass_position_sum.x / quad->sum_mass;
+       quad->center_of_mass.y = mass_position_sum.y / quad->sum_mass;
+     }
++    pthread_mutex_unlock(&quad->lock);
+   }
++  quad->done = true;
+ }
+ 
+ quads* init_child(int id, point middle, int64_t parent_count) {
+     quads* child = malloc(sizeof(quads));
++    child->initd = false;
+     child->id = id;
+     child->child_count = 0;
+     child->sum_mass = 0;
+@@ -236,34 +246,44 @@ point get_middle(int64_t count, body** vec) {
+   return middle;
+ }
+ 
+-void divide(int64_t count, quads* root) {
++void divide(int64_t count, quads* root, worker_info* data) {
+   body** vec = root->bodies;
+-  point middle = get_middle(count, vec);
+-  root->sum_mass = 0;
+-  for (int i = 0; i < 4; i++) {
+-    root->children[i] = init_child(i, middle, count);
+-  }
+-
+-  for (int64_t i = 0; i < count; i++) {
+-    root->sum_mass += vec[i]->mass;
+-    if (vec[i]->position.y > middle.y) { // N
+-      if (vec[i]->position.x > middle.x) { // NE
+-        insert_body(root->children[0], vec[i]);
+-      } else if (vec[i]->position.x <= middle.x) { // NW
+-        insert_body(root->children[1], vec[i]);
++  point middle;
++  while (root->initd == false) {
++    if (pthread_mutex_trylock(&root->lock) == 0) {
++      if (root->initd == true)
++        continue;
++      middle = get_middle(count, vec);
++      for (int i = 0; i < 4; i++) {
++        root->children[i] = init_child(i, middle, count);
+       }
+-    } else if (vec[i]->position.y <= middle.y) { // S
+-      if (vec[i]->position.x < middle.x) { // SW
+-        insert_body(root->children[2], vec[i]);
+-      } else if (vec[i]->position.x >= middle.x){ // SE
+-        insert_body(root->children[3], vec[i]);
++      root->initd = true;
++
++      for (int64_t i = 0; i < count; i++) {
++        root->sum_mass += vec[i]->mass;
++        if (vec[i]->position.y > middle.y) { // N
++          if (vec[i]->position.x > middle.x) { // NE
++            insert_body(root->children[0], vec[i]);
++          } else if (vec[i]->position.x <= middle.x) { // NW
++            insert_body(root->children[1], vec[i]);
++          }
++        } else if (vec[i]->position.y <= middle.y) { // S
++          if (vec[i]->position.x < middle.x) { // SW
++            insert_body(root->children[2], vec[i]);
++          } else if (vec[i]->position.x >= middle.x){ // SE
++            insert_body(root->children[3], vec[i]);
++          }
++        } else {
++          printf("Error! x %lf y %lf\n", vec[i]->position.x, vec[i]->position.y);
++        }
+       }
+-    } else {
+-      printf("Error! x %lf y %lf\n", vec[i]->position.x, vec[i]->position.y);
+     }
+   }
++  pthread_mutex_unlock(&root->lock);
+   for (int i = 0; i < 4; i++) {
+-    inner_divide(root->children[i]);
++    if (!root->children[i]->done) {
++      inner_divide(root->children[i], data);
++    }
+   }
+ }
+ 
+@@ -355,8 +375,7 @@ void* Worker (void* in) {
+ 
+   /* Do simulation */
+   for (int64_t t = 0; t < data->time_limit; t++) {
+-    if (data->worker_id == 0)
+-      divide(data->count, root);
++    divide(data->count, root, data);
+     barrier(data->total_workers);
+     calculate_forces(data);
+     barrier(data->total_workers);

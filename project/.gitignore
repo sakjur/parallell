@@ -1,3 +1,8 @@
 nbody.mp4
 output.json
 output
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.toc
